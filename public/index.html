@@ -370,6 +370,13 @@
           <div class="cell" id="tokenCell" hidden><span>Access token</span><input id="tokenInput" type="password" placeholder="APP_TOKEN"></div>
           <button class="cell action" id="recheck">Check connection again</button>
         </div>
+        <div id="inviteGroup" hidden>
+          <div class="group-title">Invite someone</div>
+          <div class="group">
+            <div class="cell"><div class="grow sub" id="inviteText" style="font-size:14px;margin:0"></div></div>
+            <button class="cell action" id="copyInvite">Copy Invite</button>
+          </div>
+        </div>
         <div class="group-title">Appearance</div>
         <div class="group">
           <div class="cell"><span class="grow">Theme</span><div class="seg" id="themeSeg"><button data-v="auto">Auto</button><button data-v="light">Light</button><button data-v="dark">Dark</button></div></div>
@@ -408,8 +415,11 @@
   try { state = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY)) || {}); } catch {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
 
-  // mode: 'twilio' (real SMS through the server), 'device' (hand off to the OS Messages app)
+  // mode: 'twilio' (real SMS through the server), 'inkbox' (claude.ai connector),
+  // 'device' (hand off to the OS Messages app)
   let mode = 'device', fromNumber = null, authRequired = false, serverUp = false;
+  const INKBOX = 'Inkbox';
+  const inkbox = { mcp: null, channel: null, error: null, smsNumber: null, connect: null };
   let current = null;   // number of the open thread, or null when composing a new one
   let pollTimer = null;
 
@@ -563,8 +573,11 @@
     });
     $('#bubbles').innerHTML = html || (n ? '' : '<div class="empty">Type a number above, then your message.</div>');
     const sc = $('#bubbleScroll'); sc.scrollTop = sc.scrollHeight;
-    $('#modeTip').textContent = mode === 'twilio'
-      ? `Sending as real SMS from ${pretty(fromNumber)}`
+    $('#modeTip').textContent =
+      mode === 'twilio' ? `Sending as real SMS from ${pretty(fromNumber)}`
+      : mode === 'inkbox' && inkbox.channel === 'sms' ? `Sending as a text through Inkbox${inkbox.smsNumber ? ' from ' + pretty(inkbox.smsNumber) : ''}`
+      : mode === 'inkbox' && inkbox.channel === 'imessage' ? 'Sending as an iMessage through Inkbox. Only works for people who have connected.'
+      : mode === 'inkbox' ? (inkbox.error || 'Inkbox isn’t ready. See Settings.')
       : 'Send hands the text to your phone’s Messages app, where you tap send.';
     updateSendBtn();
   }
@@ -626,7 +639,18 @@
     convo(n).messages.push(msg);
     save(); renderThread();
 
-    if (mode === 'twilio') {
+    if (mode === 'inkbox' && inkbox.channel) {
+      try {
+        if (inkbox.channel === 'sms') {
+          await inkbox.mcp.callTool(INKBOX, 'inkbox_text_send', { to: [n], text: body });
+        } else {
+          await inkbox.mcp.callTool(INKBOX, 'inkbox_imessage_send', { recipient: n, text: body });
+        }
+        msg.status = 'sent';
+      } catch (e) {
+        Object.assign(msg, { status: 'failed', error: inkboxError(e) });
+      }
+    } else if (mode === 'twilio') {
       try {
         const res = await api('/api/send', { method: 'POST', body: JSON.stringify({ id: msg.id, to: n, body }) });
         Object.assign(msg, { status: 'sent', sid: res.sid, seq: res.seq });
@@ -639,6 +663,49 @@
     }
     save();
     if (current === n) renderThread();
+  }
+
+  // ---------- Inkbox (claude.ai connector) ----------
+  function inkboxError(e) {
+    switch (e && e.code) {
+      case 'needs_reauth': return 'Reconnect Inkbox in claude.ai Settings → Connectors';
+      case 'server_not_connected': return 'Add Inkbox in claude.ai Settings → Connectors';
+      case 'not_in_manifest':
+      case 'approval_required': return 'This page needs your OK to use Inkbox. Tap to try again and choose Allow';
+      case 'server_unavailable':
+      case 'upstream_error':
+      case 'cancelled': return 'Inkbox didn’t answer, so this may or may not have sent';
+      case 'tool_error': {
+        let m = String(e.message || 'Inkbox refused the message');
+        try { const j = JSON.parse(m); m = (j.error && (j.error.message || j.error.code)) || j.message || m; } catch {}
+        if (inkbox.channel === 'imessage' && inkbox.connect) m += `. They may need to connect first (see Settings)`;
+        return m.slice(0, 220);
+      }
+      default: return (e && e.message) || 'Something went wrong';
+    }
+  }
+
+  async function detectInkbox() {
+    if (!(window.claude && window.claude.use)) return false;
+    let mcp = null;
+    try { mcp = await window.claude.use('mcp'); } catch {}
+    if (!mcp) return false;
+    inkbox.mcp = mcp; inkbox.error = null;
+    try {
+      const st = (await mcp.callTool(INKBOX, 'inkbox_channel_status_get', {}, { cache: false })).payload || {};
+      inkbox.smsNumber = st.phone && st.phone.number;
+      inkbox.channel = st.sms_available ? 'sms' : (st.imessage && st.imessage.enabled ? 'imessage' : null);
+      if (!inkbox.channel) inkbox.error = 'Your Inkbox account has no texting set up yet. Add a phone number in Inkbox.';
+    } catch (e) {
+      inkbox.channel = null; inkbox.error = inkboxError(e);
+    }
+    if (inkbox.channel === 'imessage') {
+      try {
+        const ob = (await mcp.callTool(INKBOX, 'inkbox_imessage_onboarding_get', {}, { cache: false })).payload || {};
+        if (ob.triage_number && ob.connect_command) inkbox.connect = { number: ob.triage_number, command: ob.connect_command };
+      } catch {}
+    }
+    return true;
   }
 
   // ---------- server sync ----------
@@ -660,6 +727,7 @@
     } catch {
       serverUp = false; mode = 'device';
     }
+    if (mode !== 'twilio' && await detectInkbox()) mode = 'inkbox';
     clearInterval(pollTimer);
     if (mode === 'twilio') { poll(); pollTimer = setInterval(poll, 3000); }
     renderSettings();
@@ -770,7 +838,19 @@
   // ---------- settings ----------
   function renderSettings() {
     const pill = $('#modePill');
-    if (mode === 'twilio') {
+    $('#inviteGroup').hidden = !(mode === 'inkbox' && inkbox.channel === 'imessage' && inkbox.connect);
+    if (inkbox.connect) {
+      $('#inviteText').textContent = `To get texts from this phone, text “${inkbox.connect.command}” to ${pretty(inkbox.connect.number)} from your iPhone.`;
+    }
+    if (mode === 'inkbox') {
+      $('#modeName').textContent = inkbox.channel === 'sms' ? 'Texts through Inkbox' : inkbox.channel === 'imessage' ? 'iMessage through Inkbox' : 'Inkbox';
+      $('#modeDesc').textContent = inkbox.channel === 'sms'
+        ? `Texts send straight from here${inkbox.smsNumber ? ' from ' + pretty(inkbox.smsNumber) : ''}. People may need to reply START before your first text reaches them.`
+        : inkbox.channel === 'imessage'
+          ? 'iMessages send straight from here, but only to people with an iPhone who have connected first. Add a phone number in Inkbox to text anyone.'
+          : (inkbox.error || 'Inkbox isn’t ready.');
+      pill.textContent = inkbox.channel ? 'Connected' : 'Not ready'; pill.className = inkbox.channel ? 'pill ok' : 'pill warn';
+    } else if (mode === 'twilio') {
       $('#modeName').textContent = 'Real SMS (Twilio)';
       $('#modeDesc').textContent = `Texts go out from ${pretty(fromNumber)}. Replies show up here automatically.`;
       pill.textContent = 'Connected'; pill.className = 'pill ok';
@@ -787,7 +867,15 @@
     $('#swatches').innerHTML = WALLPAPERS.map((w, i) => `<button class="swatch ${i === state.settings.wallpaper ? 'on' : ''}" data-wp="${i}" style="background:${w}" aria-label="Wallpaper ${i + 1}"></button>`).join('');
   }
   $('#tokenInput').onchange = e => { state.settings.token = e.target.value.trim(); save(); detect(); toast('Token saved'); };
-  $('#recheck').onclick = async () => { await detect(); toast(mode === 'twilio' ? 'Connected to Twilio' : 'Using device hand-off'); };
+  $('#recheck').onclick = async () => {
+    await detect();
+    toast(mode === 'twilio' ? 'Connected to Twilio' : mode === 'inkbox' ? (inkbox.channel ? 'Connected to Inkbox' : 'Inkbox isn’t ready') : 'Using device hand-off');
+  };
+  $('#copyInvite').onclick = () => {
+    if (!inkbox.connect) return;
+    const text = `Text "${inkbox.connect.command}" to ${inkbox.connect.number} so I can message you.`;
+    navigator.clipboard.writeText(text).then(() => toast('Invite copied'), () => toast(`Couldn’t copy. Text "${inkbox.connect.command}" to ${inkbox.connect.number}`));
+  };
   $('#themeSeg').onclick = e => { const b = e.target.closest('[data-v]'); if (b) { state.settings.theme = b.dataset.v; save(); applyLook(); renderSettings(); } };
   $('#swatches').onclick = e => { const b = e.target.closest('[data-wp]'); if (b) { state.settings.wallpaper = +b.dataset.wp; save(); applyLook(); renderSettings(); } };
   $('#wipe').onclick = async () => {
