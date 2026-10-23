@@ -1,0 +1,13 @@
+{
+  "name": "virtual-phone",
+  "version": "1.0.0",
+  "description": "A virtual phone in your browser that sends and receives real SMS via Twilio",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

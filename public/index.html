@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Virtual Phone</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📱</text></svg>">
+<style>
+  :root {
+    --bezel: #121214;
+    --app-bg: #ffffff;
+    --app-bg-2: #f2f2f7;
+    --text: #000000;
+    --text-2: #6e6e73;
+    --sep: #d8d8dc;
+    --blue: #0a84ff;
+    --green: #30d158;
+    --red: #ff3b30;
+    --bubble-in: #e9e9eb;
+    --bubble-in-text: #000;
+    --page-bg: #1b1b22;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --app-bg: #000000; --app-bg-2: #1c1c1e; --text: #ffffff; --text-2: #98989f;
+      --sep: #38383a; --bubble-in: #26262a; --bubble-in-text: #fff; --page-bg: #0b0b0f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --app-bg: #000000; --app-bg-2: #1c1c1e; --text: #ffffff; --text-2: #98989f;
+    --sep: #38383a; --bubble-in: #26262a; --bubble-in-text: #fff; --page-bg: #0b0b0f;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(circle at 30% 20%, #34344a 0%, var(--page-bg) 60%);
+    background-color: var(--page-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: grid; place-items: center; overflow: hidden;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  input, textarea { font: inherit; color: var(--text); }
+
+  .device {
+    height: min(844px, calc(100dvh - 32px));
+    aspect-ratio: 390 / 844;
+    padding: 12px; border-radius: 60px;
+    background: var(--bezel);
+    box-shadow: 0 0 0 2px #2c2c30, 0 0 0 4px #0a0a0b, 0 30px 80px rgba(0,0,0,.6);
+    position: relative;
+  }
+  .screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 48px; overflow: hidden;
+    background: var(--wallpaper, linear-gradient(160deg, #3a1c71, #d76d77 55%, #ffaf7b));
+    container-type: size;
+  }
+  @media (max-width: 500px) {
+    body { display: block; }
+    .device { width: 100vw; height: 100dvh; padding: 0; border-radius: 0; box-shadow: none; aspect-ratio: auto; }
+    .screen { border-radius: 0; }
+    .island { display: none; }
+  }
+
+  .island {
+    position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 34px; border-radius: 20px; background: #000; z-index: 100;
+  }
+  .statusbar {
+    position: absolute; inset: 0 0 auto 0; height: 50px; z-index: 90;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 30px 0 34px; font-weight: 600; font-size: 15px; color: #fff;
+    pointer-events: none; transition: color .25s;
+  }
+  .screen.app-open .statusbar { color: var(--text); }
+  .sb-icons { display: flex; gap: 6px; align-items: center; }
+  .sb-icons svg { height: 12px; fill: currentColor; }
+
+  .view {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none; transform: scale(.96);
+    transition: opacity .25s ease, transform .3s ease;
+  }
+  .view.active { opacity: 1; pointer-events: auto; transform: none; }
+  .view.app { background: var(--app-bg); color: var(--text); padding-top: 50px; }
+  .view.slide { transform: translateX(30%); }
+  .view.slide.active { transform: none; }
+
+  /* ---------- lock screen ---------- */
+  #lock { color: #fff; align-items: center; padding-top: 90px; user-select: none; touch-action: none; }
+  #lock .date { font-size: 20px; font-weight: 500; opacity: .9; }
+  #lock .time { font-size: 92px; font-weight: 700; letter-spacing: -2px; line-height: 1; margin-top: 4px; }
+  #lock .hint { margin-top: auto; margin-bottom: 44px; font-size: 14px; opacity: .85; animation: bob 2s ease-in-out infinite; }
+  #lockNotes { width: 88%; margin-top: 28px; display: flex; flex-direction: column; gap: 8px; }
+  @keyframes bob { 50% { transform: translateY(-6px); } }
+
+  /* ---------- home screen ---------- */
+  #home { padding: 70px 22px 0; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px 10px; }
+  .app-icon { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #fff; font-size: 12px; position: relative; }
+  .app-icon .glyph {
+    width: 62px; height: 62px; border-radius: 15px; display: grid; place-items: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25); transition: transform .15s;
+  }
+  .app-icon:active .glyph { transform: scale(.9); }
+  .app-icon .glyph svg { width: 34px; height: 34px; fill: #fff; }
+  .badge {
+    position: absolute; top: -6px; right: 4px; min-width: 22px; height: 22px; padding: 0 6px;
+    border-radius: 11px; background: var(--red); color: #fff; font-size: 13px; font-weight: 600;
+    display: none; place-items: center;
+  }
+  .badge.show { display: grid; }
+  .dock {
+    position: absolute; left: 12px; right: 12px; bottom: 26px; padding: 14px 10px;
+    border-radius: 32px; background: rgba(255,255,255,.22); backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .dock .app-icon > span:nth-child(2) { display: none; }
+  .g-messages { background: linear-gradient(#5ff777, #0fbf3a); }
+  .g-phone { background: linear-gradient(#5ff777, #0fbf3a); }
+  .g-contacts { background: linear-gradient(#c8c8cc, #8e8e93); }
+  .g-settings { background: linear-gradient(#a8a8ad, #636366); }
+
+  /* ---------- shared app chrome ---------- */
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 16px; min-height: 44px; flex-shrink: 0;
+  }
+  .nav .link { color: var(--blue); font-size: 17px; display: flex; align-items: center; gap: 2px; }
+  .nav .link svg { width: 22px; height: 22px; fill: currentColor; }
+  .big-title { font-size: 34px; font-weight: 700; padding: 0 16px 8px; }
+  .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+  .search {
+    margin: 0 16px 10px; padding: 8px 12px; border-radius: 10px; border: 0;
+    background: var(--app-bg-2); width: calc(100% - 32px); outline: none; font-size: 16px;
+  }
+  .empty { text-align: center; color: var(--text-2); padding: 60px 30px; font-size: 15px; line-height: 1.4; }
+  .avatar {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+    background: linear-gradient(#a5a9b3, #868a94); color: #fff; font-weight: 600; font-size: 17px;
+  }
+
+  /* ---------- conversation list ---------- */
+  .convo { display: flex; gap: 12px; align-items: center; padding: 10px 16px; width: 100%; text-align: left; position: relative; }
+  .convo:active { background: var(--app-bg-2); }
+  .convo .meta { flex: 1; min-width: 0; border-bottom: 1px solid var(--sep); padding-bottom: 10px; margin-bottom: -10px; }
+  .convo .row1 { display: flex; justify-content: space-between; gap: 8px; }
+  .convo .name { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .convo .when { color: var(--text-2); font-size: 14px; flex-shrink: 0; }
+  .convo .preview {
+    color: var(--text-2); font-size: 14px; line-height: 1.3; margin-top: 2px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .convo .dot { position: absolute; left: 4px; top: 50%; width: 9px; height: 9px; margin-top: -4px; border-radius: 50%; background: var(--blue); }
+
+  /* ---------- thread ---------- */
+  .thread-head { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--text); flex: 1; }
+  .thread-head .avatar { width: 40px; height: 40px; font-size: 15px; }
+  .thread-nav { border-bottom: 1px solid var(--sep); background: var(--app-bg-2); padding-bottom: 8px; }
+  .thread-nav .side { width: 64px; display: flex; }
+  .thread-nav .side:last-child { justify-content: flex-end; gap: 14px; }
+  .to-row { display: none; align-items: center; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--sep); }
+  .to-row.show { display: flex; }
+  .to-row input { flex: 1; border: 0; outline: none; background: none; font-size: 16px; }
+  .to-row label { color: var(--text-2); }
+  #bubbles { padding: 12px 12px 6px; display: flex; flex-direction: column; gap: 2px; }
+  .stamp { text-align: center; color: var(--text-2); font-size: 11px; margin: 12px 0 6px; }
+  .bubble {
+    max-width: 75%; padding: 8px 13px; border-radius: 19px; font-size: 16px; line-height: 1.3;
+    white-space: pre-wrap; word-wrap: break-word; animation: pop .2s ease-out;
+  }
+  .bubble.out { align-self: flex-end; background: var(--blue); color: #fff; }
+  .bubble.in { align-self: flex-start; background: var(--bubble-in); color: var(--bubble-in-text); }
+  .bubble.failed { background: #ff6b63; }
+  .bubble.sending { opacity: .6; }
+  .receipt { align-self: flex-end; font-size: 11px; color: var(--text-2); margin: 2px 4px 4px; }
+  .receipt.err { color: var(--red); cursor: pointer; }
+  @keyframes pop { from { transform: scale(.85); opacity: 0; } }
+  .composer {
+    display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px 34px; flex-shrink: 0;
+    border-top: 1px solid var(--sep); background: var(--app-bg);
+  }
+  .composer textarea {
+    flex: 1; resize: none; border: 1px solid var(--sep); border-radius: 18px; padding: 7px 14px;
+    font-size: 16px; line-height: 1.3; max-height: 120px; outline: none; background: var(--app-bg);
+  }
+  .send-btn {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--blue); flex-shrink: 0;
+    display: grid; place-items: center; margin-bottom: 2px; transition: opacity .15s, transform .15s;
+  }
+  .send-btn svg { width: 18px; height: 18px; fill: #fff; }
+  .send-btn:disabled { opacity: .35; cursor: default; }
+  .send-btn:not(:disabled):active { transform: scale(.88); }
+  .mode-tip { text-align: center; font-size: 11px; color: var(--text-2); padding: 0 20px 6px; }
+
+  /* ---------- dialer ---------- */
+  #dialer { align-items: center; }
+  .dial-display { height: 90px; display: flex; align-items: flex-end; justify-content: center; font-size: 36px; font-weight: 400; padding: 0 20px; width: 100%; overflow: hidden; white-space: nowrap; margin-top: 30px; }
+  .dial-sub { height: 24px; color: var(--blue); font-size: 15px; margin-bottom: 18px; }
+  .keypad { display: grid; grid-template-columns: repeat(3, 78px); gap: 16px 26px; }
+  .key { width: 78px; height: 78px; border-radius: 50%; background: var(--app-bg-2); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .key:active { filter: brightness(.85); }
+  .key b { font-size: 32px; font-weight: 400; line-height: 1; }
+  .key small { font-size: 10px; letter-spacing: 2px; font-weight: 600; margin-top: 2px; color: var(--text-2); }
+  .dial-actions { display: grid; grid-template-columns: repeat(3, 78px); gap: 26px; margin-top: 16px; align-items: center; justify-items: center; }
+  .call-btn { width: 78px; height: 78px; border-radius: 50%; background: var(--green); display: grid; place-items: center; }
+  .call-btn svg { width: 34px; fill: #fff; }
+  .icon-btn svg { width: 28px; height: 28px; fill: var(--text-2); }
+
+  /* ---------- lists / settings ---------- */
+  .group { margin: 8px 16px 22px; border-radius: 12px; background: var(--app-bg-2); overflow: hidden; }
+  .group-title { margin: 0 32px 6px; font-size: 13px; color: var(--text-2); text-transform: uppercase; }
+  .cell { display: flex; align-items: center; gap: 12px; padding: 11px 16px; min-height: 44px; width: 100%; text-align: left; font-size: 16px; }
+  .cell + .cell { border-top: 1px solid var(--sep); }
+  .cell .grow { flex: 1; min-width: 0; }
+  .cell .sub { color: var(--text-2); font-size: 13px; margin-top: 2px; line-height: 1.35; }
+  .cell input { flex: 1; border: 0; background: none; outline: none; font-size: 16px; min-width: 0; text-align: right; }
+  .cell.danger { color: var(--red); justify-content: center; }
+  .cell.action { color: var(--blue); justify-content: center; }
+  .pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 10px; color: #fff; background: var(--text-2); flex-shrink: 0; }
+  .pill.ok { background: var(--green); }
+  .pill.warn { background: #ff9f0a; }
+  .swatches { display: flex; gap: 10px; padding: 12px 16px; }
+  .swatch { width: 44px; height: 44px; border-radius: 10px; border: 3px solid transparent; }
+  .swatch.on { border-color: var(--blue); }
+  .seg { display: flex; background: var(--app-bg); border-radius: 8px; padding: 2px; }
+  .seg button { padding: 4px 10px; border-radius: 6px; font-size: 13px; }
+  .seg button.on { background: var(--blue); color: #fff; }
+  .contact-letter { padding: 4px 16px; font-size: 13px; font-weight: 600; color: var(--text-2); background: var(--app-bg-2); }
+
+  /* ---------- notification banner + home bar ---------- */
+  .note {
+    background: rgba(245,245,245,.88); color: #000; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-radius: 20px; padding: 10px 14px; display: flex; gap: 10px; align-items: center; text-align: left; width: 100%;
+    box-shadow: 0 8px 30px rgba(0,0,0,.25);
+  }
+  .note .glyph { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; }
+  .note .glyph svg { width: 22px; fill: #fff; }
+  .note b { font-size: 14px; display: block; }
+  .note span { font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #banner { position: absolute; top: 8px; left: 10px; right: 10px; z-index: 120; transform: translateY(-140%); transition: transform .35s cubic-bezier(.2,.9,.3,1.2); }
+  #banner.show { transform: none; }
+  .home-bar { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 160px; height: 26px; z-index: 110; display: grid; place-items: center; }
+  .home-bar::after { content: ""; width: 134px; height: 5px; border-radius: 3px; background: #fff; opacity: .9; }
+  .screen.app-open .home-bar::after { background: var(--text); }
+  .toast {
+    position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%) translateY(20px); opacity: 0;
+    background: rgba(0,0,0,.8); color: #fff; padding: 9px 16px; border-radius: 18px; font-size: 14px; z-index: 130;
+    transition: opacity .2s, transform .2s; pointer-events: none; max-width: 85%; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="screen" id="screen">
+    <div class="island"></div>
+    <div class="statusbar">
+      <span id="clock">9:41</span>
+      <span class="sb-icons">
+        <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 6 2.4l1.3-1.4C13.3 1.2 10.8.2 8 .2S2.7 1.2.7 3.2L2 4.6c1.6-1.5 3.7-2.4 6-2.4zm0 3.6c1.3 0 2.5.5 3.4 1.3l1.3-1.4A6.9 6.9 0 0 0 8 3.8c-1.8 0-3.4.7-4.7 1.9l1.3 1.4C5.5 6.3 6.7 5.8 8 5.8zm0 3.4c-.6 0-1.1.2-1.5.6L8 11.4l1.5-1.6c-.4-.4-.9-.6-1.5-.6z"/></svg>
+        <svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="1.8"/><rect x="24" y="4" width="2" height="4" rx="1" opacity=".5"/></svg>
+      </span>
+    </div>
+
+    <!-- LOCK -->
+    <section class="view active" id="lock">
+      <div class="date" id="lockDate"></div>
+      <div class="time" id="lockTime"></div>
+      <div id="lockNotes"></div>
+      <div class="hint">Swipe up or tap to unlock</div>
+    </section>
+
+    <!-- HOME -->
+    <section class="view" id="home">
+      <div class="grid">
+        <button class="app-icon" data-open="messages"><span class="glyph g-messages"><svg viewBox="0 0 24 24"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.6 3.4 6.1-.2 1.3-.9 2.6-1.9 3.6 2 0 3.9-.7 5.3-1.8.98.2 2 .3 3.2.3 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg></span><span>Messages</span><span class="badge" data-badge></span></button>
+        <button class="app-icon" data-open="dialer"><span class="glyph g-phone"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg></span><span>Phone</span></button>
+        <button class="app-icon" data-open="contacts"><span class="glyph g-contacts"><svg viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2.2c-3.3 0-9 1.7-9 5V21h18v-1.8c0-3.3-5.7-5-9-5z"/></svg></span><span>Contacts</span></button>
+        <button class="app-icon" data-open="settings"><span class="glyph g-settings"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.4 2.7c-.6.3-1.2.6-1.7 1l-2.5-1-2 3.5L6.5 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></span><span>Settings</span></button>
+      </div>
+      <div class="dock grid">
+        <button class="app-icon" data-open="dialer"><span class="glyph g-phone"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg></span><span>Phone</span></button>
+        <button class="app-icon" data-open="messages"><span class="glyph g-messages"><svg viewBox="0 0 24 24"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.6 3.4 6.1-.2 1.3-.9 2.6-1.9 3.6 2 0 3.9-.7 5.3-1.8.98.2 2 .3 3.2.3 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg></span><span>Messages</span><span class="badge" data-badge></span></button>
+        <button class="app-icon" data-open="contacts"><span class="glyph g-contacts"><svg viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2.2c-3.3 0-9 1.7-9 5V21h18v-1.8c0-3.3-5.7-5-9-5z"/></svg></span><span>Contacts</span></button>
+        <button class="app-icon" data-open="settings"><span class="glyph g-settings"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.4 2.7c-.6.3-1.2.6-1.7 1l-2.5-1-2 3.5L6.5 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></span><span>Settings</span></button>
+      </div>
+    </section>
+
+    <!-- MESSAGES LIST -->
+    <section class="view app" id="messages">
+      <div class="nav">
+        <button class="link" data-open="home"><svg viewBox="0 0 24 24"><path d="M15.4 4.6 14 3.2 5.2 12l8.8 8.8 1.4-1.4L8 12z"/></svg>Home</button>
+        <button class="link" id="composeBtn" aria-label="New message"><svg viewBox="0 0 24 24"><path d="M3 17.2V21h3.8L17.8 10l-3.8-3.8zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.8 3.8z"/></svg></button>
+      </div>
+      <div class="big-title">Messages</div>
+      <input class="search" id="convoSearch" placeholder="Search" autocomplete="off">
+      <div class="scroll" id="convoList"></div>
+    </section>
+
+    <!-- THREAD -->
+    <section class="view app slide" id="thread">
+      <div class="nav thread-nav">
+        <div class="side"><button class="link" data-open="messages"><svg viewBox="0 0 24 24"><path d="M15.4 4.6 14 3.2 5.2 12l8.8 8.8 1.4-1.4L8 12z"/></svg></button></div>
+        <div class="thread-head" id="threadHead"></div>
+        <div class="side">
+          <button class="link" id="threadCall" aria-label="Call"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg></button>
+          <button class="link" id="threadDelete" aria-label="Delete conversation"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg></button>
+        </div>
+      </div>
+      <div class="to-row" id="toRow"><label for="toInput">To:</label><input id="toInput" inputmode="tel" placeholder="Phone number or contact" autocomplete="off"></div>
+      <div class="scroll" id="bubbleScroll"><div id="bubbles"></div></div>
+      <div class="mode-tip" id="modeTip"></div>
+      <div class="composer">
+        <textarea id="msgInput" rows="1" placeholder="Text Message"></textarea>
+        <button class="send-btn" id="sendBtn" disabled aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 4 5 11l1.4 1.4L11 7.8V20h2V7.8l4.6 4.6L19 11z"/></svg></button>
+      </div>
+    </section>
+
+    <!-- DIALER -->
+    <section class="view app" id="dialer">
+      <div class="nav" style="width:100%"><button class="link" data-open="home"><svg viewBox="0 0 24 24"><path d="M15.4 4.6 14 3.2 5.2 12l8.8 8.8 1.4-1.4L8 12z"/></svg>Home</button><span></span></div>
+      <div class="dial-display" id="dialDisplay"></div>
+      <div class="dial-sub" id="dialSub"></div>
+      <div class="keypad" id="keypad"></div>
+      <div class="dial-actions">
+        <button class="icon-btn" id="dialMsg" aria-label="Message this number"><svg viewBox="0 0 24 24"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.6 3.4 6.1-.2 1.3-.9 2.6-1.9 3.6 2 0 3.9-.7 5.3-1.8.98.2 2 .3 3.2.3 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg></button>
+        <button class="call-btn" id="dialCall" aria-label="Call"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg></button>
+        <button class="icon-btn" id="dialBack" aria-label="Delete digit"><svg viewBox="0 0 24 24"><path d="M22 5H8l-6 7 6 7h14zm-4.6 9.6L16 16l-3-3-3 3-1.4-1.4 3-3-3-3L10 7.2l3 3 3-3 1.4 1.4-3 3z"/></svg></button>
+      </div>
+    </section>
+
+    <!-- CONTACTS -->
+    <section class="view app" id="contacts">
+      <div class="nav">
+        <button class="link" data-open="home"><svg viewBox="0 0 24 24"><path d="M15.4 4.6 14 3.2 5.2 12l8.8 8.8 1.4-1.4L8 12z"/></svg>Home</button>
+        <button class="link" id="addContactBtn" style="font-size:28px;line-height:1">+</button>
+      </div>
+      <div class="big-title">Contacts</div>
+      <div class="scroll">
+        <div class="group" id="contactForm" hidden>
+          <div class="cell"><span>Name</span><input id="cName" placeholder="Jane Appleseed"></div>
+          <div class="cell"><span>Phone</span><input id="cNumber" inputmode="tel" placeholder="(555) 123-4567"></div>
+          <button class="cell action" id="saveContact">Save Contact</button>
+        </div>
+        <div id="contactList"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view app" id="settings" style="background:var(--app-bg)">
+      <div class="nav"><button class="link" data-open="home"><svg viewBox="0 0 24 24"><path d="M15.4 4.6 14 3.2 5.2 12l8.8 8.8 1.4-1.4L8 12z"/></svg>Home</button><span></span></div>
+      <div class="big-title">Settings</div>
+      <div class="scroll">
+        <div class="group-title">Messaging</div>
+        <div class="group">
+          <div class="cell"><div class="grow"><div id="modeName">Checking…</div><div class="sub" id="modeDesc"></div></div><span class="pill" id="modePill">…</span></div>
+          <div class="cell" id="tokenCell" hidden><span>Access token</span><input id="tokenInput" type="password" placeholder="APP_TOKEN"></div>
+          <button class="cell action" id="recheck">Check connection again</button>
+        </div>
+        <div class="group-title">Appearance</div>
+        <div class="group">
+          <div class="cell"><span class="grow">Theme</span><div class="seg" id="themeSeg"><button data-v="auto">Auto</button><button data-v="light">Light</button><button data-v="dark">Dark</button></div></div>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div class="group"><button class="cell danger" id="wipe">Erase All Messages & Contacts</button></div>
+      </div>
+    </section>
+
+    <div id="banner"></div>
+    <div class="toast" id="toast"></div>
+    <button class="home-bar" id="homeBar" aria-label="Home"></button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const KEY = 'virtual-phone:v1';
+  const WALLPAPERS = [
+    'linear-gradient(160deg, #3a1c71, #d76d77 55%, #ffaf7b)',
+    'linear-gradient(160deg, #0f2027, #2c5364)',
+    'linear-gradient(160deg, #11998e, #38ef7d)',
+    'linear-gradient(160deg, #1d2b64, #f8cdda)',
+    'linear-gradient(160deg, #232526, #414345)',
+  ];
+  const MSG_ICON = document.querySelector('.g-messages').outerHTML;
+
+  const $ = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---------- state ----------
+  const defaults = () => ({ convos: {}, contacts: {}, settings: { token: '', theme: 'auto', wallpaper: 0 }, seq: 0 });
+  let state = defaults();
+  try { state = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY)) || {}); } catch {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} };
+
+  // mode: 'twilio' (real SMS through the server), 'device' (hand off to the OS Messages app)
+  let mode = 'device', fromNumber = null, authRequired = false, serverUp = false;
+  let current = null;   // number of the open thread, or null when composing a new one
+  let pollTimer = null;
+
+  // ---------- phone numbers ----------
+  function normalize(raw) {
+    const s = String(raw || '').trim();
+    const d = s.replace(/\D/g, '');
+    if (!d) return '';
+    if (s.startsWith('+')) return '+' + d;
+    if (d.length === 10) return '+1' + d;
+    if (d.length === 11 && d[0] === '1') return '+' + d;
+    return d.length > 7 ? '+' + d : d; // short codes stay as-is
+  }
+  function pretty(n) {
+    const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(n);
+    return m ? `(${m[1]}) ${m[2]}-${m[3]}` : n;
+  }
+  const nameOf = n => state.contacts[n] || pretty(n);
+  function initials(n) {
+    const name = state.contacts[n];
+    if (!name) return '#';
+    return name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  }
+  function avatarHtml(n) {
+    return state.contacts[n]
+      ? `<div class="avatar">${esc(initials(n))}</div>`
+      : `<div class="avatar"><svg viewBox="0 0 24 24" width="26" fill="#fff"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2.2c-3.3 0-9 1.7-9 5V21h18v-1.8c0-3.3-5.7-5-9-5z"/></svg></div>`;
+  }
+
+  // ---------- time ----------
+  function shortTime(ts) {
+    const d = new Date(ts), now = new Date();
+    if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const y = new Date(now); y.setDate(now.getDate() - 1);
+    if (d.toDateString() === y.toDateString()) return 'Yesterday';
+    if (now - d < 6 * 864e5) return d.toLocaleDateString([], { weekday: 'long' });
+    return d.toLocaleDateString([], { month: 'numeric', day: 'numeric', year: '2-digit' });
+  }
+  function tick() {
+    const now = new Date();
+    const t = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
+    $('#clock').textContent = t;
+    $('#lockTime').textContent = t;
+    $('#lockDate').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+
+  // ---------- navigation ----------
+  function show(id) {
+    $$('.view').forEach(v => v.classList.toggle('active', v.id === id));
+    $('#screen').classList.toggle('app-open', !['lock', 'home'].includes(id));
+    if (id === 'messages') renderConvos();
+    if (id === 'contacts') renderContacts();
+    if (id === 'settings') renderSettings();
+    if (id === 'lock') renderLockNotes();
+    if (id !== 'thread') current = null;
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-open]');
+    if (b) show(b.dataset.open);
+  });
+  $('#homeBar').onclick = () => show($('#home').classList.contains('active') ? 'lock' : 'home');
+
+  // lock screen: swipe up or tap
+  let startY = null;
+  const lock = $('#lock');
+  lock.addEventListener('pointerdown', e => { startY = e.clientY; });
+  lock.addEventListener('pointerup', e => {
+    if (startY === null) return;
+    const dy = e.clientY - startY; startY = null;
+    if (dy < -30 || Math.abs(dy) < 8) show('home');
+  });
+
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  // ---------- conversations ----------
+  function convo(n) { return state.convos[n] || (state.convos[n] = { messages: [], unread: 0 }); }
+  const lastMsg = c => c.messages[c.messages.length - 1];
+
+  function updateBadges() {
+    const total = Object.values(state.convos).reduce((s, c) => s + (c.unread || 0), 0);
+    $$('[data-badge]').forEach(b => { b.textContent = total > 99 ? '99+' : total; b.classList.toggle('show', total > 0); });
+    document.title = total ? `(${total}) Virtual Phone` : 'Virtual Phone';
+  }
+
+  function renderConvos() {
+    const q = $('#convoSearch').value.trim().toLowerCase();
+    const list = Object.entries(state.convos)
+      .filter(([, c]) => c.messages.length)
+      .filter(([n, c]) => !q || nameOf(n).toLowerCase().includes(q) || n.includes(q) || c.messages.some(m => m.body.toLowerCase().includes(q)))
+      .sort((a, b) => lastMsg(b[1]).ts - lastMsg(a[1]).ts);
+    $('#convoList').innerHTML = list.length ? list.map(([n, c]) => {
+      const m = lastMsg(c);
+      return `<button class="convo" data-thread="${esc(n)}">
+        ${c.unread ? '<span class="dot"></span>' : ''}
+        ${avatarHtml(n)}
+        <div class="meta"><div class="row1"><span class="name">${esc(nameOf(n))}</span><span class="when">${shortTime(m.ts)}</span></div>
+        <div class="preview">${m.dir === 'out' && m.status === 'failed' ? '⚠️ Not delivered: ' : ''}${esc(m.body)}</div></div>
+      </button>`;
+    }).join('') : `<div class="empty">${q ? 'No results' : 'No messages yet.<br>Tap the pencil to start a conversation.'}</div>`;
+    updateBadges();
+  }
+  $('#convoSearch').oninput = renderConvos;
+  $('#convoList').onclick = e => { const b = e.target.closest('[data-thread]'); if (b) openThread(b.dataset.thread); };
+  $('#composeBtn').onclick = () => openThread(null);
+
+  function openThread(n) {
+    show('thread');
+    current = n;
+    $('#toRow').classList.toggle('show', !n);
+    $('#threadCall').style.visibility = $('#threadDelete').style.visibility = n ? 'visible' : 'hidden';
+    if (n) { convo(n).unread = 0; save(); updateBadges(); }
+    renderThread();
+    setTimeout(() => (n ? $('#msgInput') : $('#toInput')).focus(), 250);
+  }
+
+  function renderThread() {
+    const n = current;
+    $('#threadHead').innerHTML = n
+      ? `${avatarHtml(n)}<span>${esc(nameOf(n))} ›</span>`
+      : `<span style="font-size:16px;font-weight:600;margin-top:10px">New Message</span>`;
+    const msgs = n ? convo(n).messages : [];
+    let html = '', prevTs = 0;
+    msgs.forEach((m, i) => {
+      if (m.ts - prevTs > 15 * 60e3) {
+        const day = new Date(m.ts).toDateString() === new Date().toDateString() ? 'Today' : shortTime(m.ts);
+        html += `<div class="stamp">${day} ${new Date(m.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>`;
+      }
+      prevTs = m.ts;
+      html += `<div class="bubble ${m.dir} ${m.status}">${esc(m.body)}</div>`;
+      const isLastOut = m.dir === 'out' && !msgs.slice(i + 1).some(x => x.dir === 'out');
+      if (m.status === 'failed') html += `<div class="receipt err" data-retry="${esc(m.id)}">Not delivered${m.error ? ' — ' + esc(m.error) : ''}. Tap to retry.</div>`;
+      else if (isLastOut) html += `<div class="receipt">${{ sending: 'Sending…', sent: 'Sent', handoff: 'Sent from your device' }[m.status] || ''}</div>`;
+    });
+    $('#bubbles').innerHTML = html || (n ? '' : '<div class="empty">Type a number above, then your message.</div>');
+    const sc = $('#bubbleScroll'); sc.scrollTop = sc.scrollHeight;
+    $('#modeTip').textContent = mode === 'twilio'
+      ? `Sending as real SMS from ${pretty(fromNumber)}`
+      : 'Send opens your device’s Messages app with the text filled in.';
+    updateSendBtn();
+  }
+
+  $('#bubbles').onclick = e => {
+    const r = e.target.closest('[data-retry]');
+    if (!r) return;
+    const c = convo(current), m = c.messages.find(x => x.id === r.dataset.retry);
+    if (!m) return;
+    c.messages.splice(c.messages.indexOf(m), 1);
+    send(current, m.body);
+  };
+
+  // ---------- composer ----------
+  const input = $('#msgInput');
+  function updateSendBtn() {
+    const hasTo = current || normalize($('#toInput').value);
+    $('#sendBtn').disabled = !(input.value.trim() && hasTo);
+  }
+  input.oninput = () => { input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; updateSendBtn(); };
+  $('#toInput').oninput = updateSendBtn;
+  $('#toInput').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); resolveTo() && input.focus(); } };
+  input.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#sendBtn').click(); } };
+
+  function resolveTo() {
+    const raw = $('#toInput').value.trim();
+    if (!raw) return null;
+    const byName = Object.entries(state.contacts).find(([, name]) => name.toLowerCase() === raw.toLowerCase());
+    const n = byName ? byName[0] : normalize(raw);
+    if (!n || n.replace(/\D/g, '').length < 3) { toast('That doesn’t look like a phone number'); return null; }
+    $('#toInput').value = '';
+    openThread(n);
+    return n;
+  }
+
+  $('#sendBtn').onclick = () => {
+    const body = input.value.trim();
+    if (!body) return;
+    const n = current || resolveTo();
+    if (!n) return;
+    input.value = ''; input.style.height = 'auto';
+    send(n, body);
+  };
+
+  const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  async function send(n, body) {
+    const msg = { id: uid(), dir: 'out', body, ts: Date.now(), status: 'sending' };
+    convo(n).messages.push(msg);
+    save(); renderThread();
+
+    if (mode === 'twilio') {
+      try {
+        const res = await api('/api/send', { method: 'POST', body: JSON.stringify({ id: msg.id, to: n, body }) });
+        Object.assign(msg, { status: 'sent', sid: res.sid, seq: res.seq });
+      } catch (e) {
+        Object.assign(msg, { status: 'failed', error: e.message });
+      }
+    } else {
+      msg.status = 'handoff';
+      // iOS reads "&body", Android reads "?body" — "?&body" works for both.
+      const link = `sms:${encodeURIComponent(n)}?&body=${encodeURIComponent(body)}`;
+      const a = document.createElement('a'); a.href = link; a.target = '_top'; a.click();
+    }
+    save();
+    if (current === n) renderThread();
+  }
+
+  // ---------- server sync ----------
+  async function api(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (state.settings.token) headers['x-app-token'] = state.settings.token;
+    const res = await fetch(path, { ...opts, headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  }
+
+  async function detect() {
+    try {
+      const s = await api('/api/status');
+      serverUp = true; authRequired = s.authRequired; fromNumber = s.from;
+      mode = s.twilio ? 'twilio' : 'device';
+    } catch {
+      serverUp = false; mode = 'device';
+    }
+    clearInterval(pollTimer);
+    if (mode === 'twilio') { poll(); pollTimer = setInterval(poll, 3000); }
+    renderSettings();
+  }
+
+  let authFailed = false;
+  async function poll() {
+    let data;
+    try { data = await api('/api/messages?since=' + (state.seq || 0)); authFailed = false; }
+    catch (e) {
+      if (/token/i.test(e.message) && !authFailed) { authFailed = true; toast('Enter your access token in Settings'); }
+      return;
+    }
+    if (data.seq < state.seq) state.seq = 0; // server data was reset
+    for (const m of data.messages) {
+      const c = convo(m.peer);
+      if (c.messages.some(x => x.id === m.id)) continue;
+      c.messages.push({ id: m.id, dir: m.dir, body: m.body, ts: m.ts, status: m.status });
+      c.messages.sort((a, b) => a.ts - b.ts);
+      if (m.dir === 'in') {
+        const viewing = current === m.peer && $('#thread').classList.contains('active');
+        if (!viewing) { c.unread = (c.unread || 0) + 1; notify(m.peer, m.body); }
+      }
+    }
+    state.seq = Math.max(state.seq, data.seq);
+    save(); updateBadges();
+    if ($('#messages').classList.contains('active')) renderConvos();
+    if (current && $('#thread').classList.contains('active')) renderThread();
+    if ($('#lock').classList.contains('active')) renderLockNotes();
+  }
+
+  function notify(n, body) {
+    const b = $('#banner');
+    b.innerHTML = `<button class="note">${MSG_ICON}<div><b>${esc(nameOf(n))}</b><span>${esc(body)}</span></div></button>`;
+    b.onclick = () => { b.classList.remove('show'); openThread(n); };
+    b.classList.add('show');
+    clearTimeout(notify.t); notify.t = setTimeout(() => b.classList.remove('show'), 4500);
+    try { navigator.vibrate && navigator.vibrate(80); } catch {}
+  }
+
+  function renderLockNotes() {
+    const unread = Object.entries(state.convos).filter(([, c]) => c.unread).slice(0, 3);
+    $('#lockNotes').innerHTML = unread.map(([n, c]) => {
+      const m = [...c.messages].reverse().find(x => x.dir === 'in');
+      return m ? `<div class="note">${MSG_ICON}<div><b>${esc(nameOf(n))}</b><span>${esc(m.body)}</span></div></div>` : '';
+    }).join('');
+  }
+
+  // ---------- dialer ----------
+  let dial = '';
+  const KEYS = [['1', ''], ['2', 'ABC'], ['3', 'DEF'], ['4', 'GHI'], ['5', 'JKL'], ['6', 'MNO'], ['7', 'PQRS'], ['8', 'TUV'], ['9', 'WXYZ'], ['*', ''], ['0', '+'], ['#', '']];
+  $('#keypad').innerHTML = KEYS.map(([k, l]) => `<button class="key" data-key="${k}"><b>${k}</b><small>${l || '&nbsp;'}</small></button>`).join('');
+  function renderDial() {
+    $('#dialDisplay').textContent = dial.length >= 10 ? pretty(normalize(dial)) : dial;
+    const n = normalize(dial);
+    $('#dialSub').textContent = state.contacts[n] || '';
+  }
+  $('#keypad').onclick = e => { const k = e.target.closest('[data-key]'); if (k && dial.length < 16) { dial += k.dataset.key; renderDial(); } };
+  // long-press 0 for +
+  let zeroTimer = null, zeroFired = false;
+  $('#keypad').addEventListener('pointerdown', e => {
+    if (!e.target.closest('[data-key="0"]')) return;
+    zeroFired = false;
+    zeroTimer = setTimeout(() => { zeroFired = true; dial += '+'; renderDial(); }, 500);
+  });
+  $('#keypad').addEventListener('pointerup', () => clearTimeout(zeroTimer));
+  $('#keypad').addEventListener('click', e => { if (zeroFired) { zeroFired = false; e.stopPropagation(); } }, true);
+  $('#dialBack').onclick = () => { dial = dial.slice(0, -1); renderDial(); };
+  $('#dialCall').onclick = () => { if (dial) location.href = 'tel:' + encodeURIComponent(normalize(dial) || dial); };
+  $('#dialMsg').onclick = () => { const n = normalize(dial); if (n) { dial = ''; renderDial(); openThread(n); } };
+  $('#threadCall').onclick = () => { if (current) location.href = 'tel:' + encodeURIComponent(current); };
+  $('#threadDelete').onclick = () => {
+    if (!current || !confirm(`Delete conversation with ${nameOf(current)}?`)) return;
+    delete state.convos[current]; save(); show('messages');
+  };
+  document.addEventListener('keydown', e => {
+    if (!$('#dialer').classList.contains('active')) return;
+    if (/^[0-9*#+]$/.test(e.key)) { dial += e.key; renderDial(); }
+    if (e.key === 'Backspace') { dial = dial.slice(0, -1); renderDial(); }
+  });
+
+  // ---------- contacts ----------
+  function renderContacts() {
+    const list = Object.entries(state.contacts).sort((a, b) => a[1].localeCompare(b[1]));
+    let html = '', letter = '';
+    for (const [n, name] of list) {
+      const L = name[0].toUpperCase();
+      if (L !== letter) { letter = L; html += `<div class="contact-letter">${esc(L)}</div>`; }
+      html += `<div class="cell"><button class="grow" style="text-align:left" data-thread="${esc(n)}"><div>${esc(name)}</div><div class="sub">${esc(pretty(n))}</div></button>
+        <button class="link" data-del="${esc(n)}" style="color:var(--text-2)" aria-label="Delete">✕</button></div>`;
+    }
+    $('#contactList').innerHTML = html || '<div class="empty">No contacts yet. Tap + to add one.</div>';
+  }
+  $('#addContactBtn').onclick = () => { const f = $('#contactForm'); f.hidden = !f.hidden; if (!f.hidden) $('#cName').focus(); };
+  $('#saveContact').onclick = () => {
+    const name = $('#cName').value.trim(), n = normalize($('#cNumber').value);
+    if (!name || !n) return toast('Enter a name and a number');
+    state.contacts[n] = name; save();
+    $('#cName').value = $('#cNumber').value = ''; $('#contactForm').hidden = true;
+    renderContacts(); toast(`Saved ${name}`);
+  };
+  $('#contactList').onclick = e => {
+    const t = e.target.closest('[data-thread]'), d = e.target.closest('[data-del]');
+    if (d) { if (confirm(`Delete ${state.contacts[d.dataset.del]}?`)) { delete state.contacts[d.dataset.del]; save(); renderContacts(); } }
+    else if (t) openThread(t.dataset.thread);
+  };
+
+  // ---------- settings ----------
+  function renderSettings() {
+    const pill = $('#modePill');
+    if (mode === 'twilio') {
+      $('#modeName').textContent = 'Real SMS (Twilio)';
+      $('#modeDesc').textContent = `Texts go out from ${pretty(fromNumber)}. Replies show up here automatically.`;
+      pill.textContent = 'Connected'; pill.className = 'pill ok';
+    } else {
+      $('#modeName').textContent = 'Device hand-off';
+      $('#modeDesc').textContent = serverUp
+        ? 'Server is running but Twilio isn’t configured. Tapping send opens your device’s Messages app with the text ready to go.'
+        : 'No server found. Tapping send opens your device’s Messages app with the text ready to go. Run server.js with Twilio keys for real two-way SMS.';
+      pill.textContent = serverUp ? 'No Twilio' : 'Offline'; pill.className = 'pill warn';
+    }
+    $('#tokenCell').hidden = !authRequired;
+    $('#tokenInput').value = state.settings.token || '';
+    $$('#themeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === state.settings.theme));
+    $('#swatches').innerHTML = WALLPAPERS.map((w, i) => `<button class="swatch ${i === state.settings.wallpaper ? 'on' : ''}" data-wp="${i}" style="background:${w}" aria-label="Wallpaper ${i + 1}"></button>`).join('');
+  }
+  $('#tokenInput').onchange = e => { state.settings.token = e.target.value.trim(); save(); detect(); toast('Token saved'); };
+  $('#recheck').onclick = async () => { await detect(); toast(mode === 'twilio' ? 'Connected to Twilio' : 'Using device hand-off'); };
+  $('#themeSeg').onclick = e => { const b = e.target.closest('[data-v]'); if (b) { state.settings.theme = b.dataset.v; save(); applyLook(); renderSettings(); } };
+  $('#swatches').onclick = e => { const b = e.target.closest('[data-wp]'); if (b) { state.settings.wallpaper = +b.dataset.wp; save(); applyLook(); renderSettings(); } };
+  $('#wipe').onclick = () => {
+    if (!confirm('Erase all messages and contacts on this phone?')) return;
+    const { settings, seq } = state;
+    state = { ...defaults(), settings, seq }; save(); updateBadges(); toast('Erased');
+  };
+  function applyLook() {
+    const t = state.settings.theme;
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.dataset.theme = t;
+    $('#screen').style.setProperty('--wallpaper', WALLPAPERS[state.settings.wallpaper] || WALLPAPERS[0]);
+  }
+
+  // ---------- boot ----------
+  applyLook(); tick(); setInterval(tick, 1000);
+  renderLockNotes(); updateBadges(); renderDial();
+  detect();
+})();
+</script>
+</body>
+</html>
