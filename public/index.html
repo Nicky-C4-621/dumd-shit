@@ -58,7 +58,7 @@
   }
   @media (max-width: 500px) {
     body { display: block; }
-    .device { width: 100vw; height: 100dvh; padding: 0; border-radius: 0; box-shadow: none; aspect-ratio: auto; }
+    .device { width: 100%; height: 100%; padding: 0; border-radius: 0; box-shadow: none; aspect-ratio: auto; }
     .screen { border-radius: 0; }
     .island { display: none; }
   }
@@ -176,6 +176,16 @@
   .bubble.sending { opacity: .6; }
   .receipt { align-self: flex-end; font-size: 11px; color: var(--text-2); margin: 2px 4px 4px; }
   .receipt.err { color: var(--red); cursor: pointer; }
+  .handoff { align-self: flex-end; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--text-2); margin: 4px 4px 6px; max-width: 85%; text-align: right; }
+  .handoff a, .handoff button { color: var(--blue); font-weight: 600; text-decoration: none; font-size: 12px; }
+  [hidden] { display: none !important; }
+  .sheet-wrap { position: absolute; inset: 0; z-index: 140; background: rgba(0,0,0,.35); display: flex; align-items: flex-end; padding: 0 8px 30px; }
+  .sheet { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .sheet .card { background: var(--app-bg-2); color: var(--text); border-radius: 14px; overflow: hidden; }
+  .sheet .msg { padding: 14px 16px; text-align: center; font-size: 13px; color: var(--text-2); border-bottom: 1px solid var(--sep); }
+  .sheet button { width: 100%; padding: 16px; font-size: 18px; color: var(--blue); background: var(--app-bg-2); }
+  .sheet .destructive { color: var(--red); }
+  .sheet .cancel { font-weight: 600; border-radius: 14px; }
   @keyframes pop { from { transform: scale(.85); opacity: 0; } }
   .composer {
     display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px 34px; flex-shrink: 0;
@@ -369,6 +379,7 @@
       </div>
     </section>
 
+    <div class="sheet-wrap" id="sheet" hidden><div class="sheet"><div class="card"><div class="msg" id="sheetMsg"></div><button class="destructive" id="sheetOk"></button></div><button class="cancel" id="sheetCancel">Cancel</button></div></div>
     <div id="banner"></div>
     <div class="toast" id="toast"></div>
     <button class="home-bar" id="homeBar" aria-label="Home"></button>
@@ -471,6 +482,17 @@
     if (dy < -30 || Math.abs(dy) < 8) show('home');
   });
 
+  function ask(text, okLabel) {
+    return new Promise(resolve => {
+      $('#sheetMsg').textContent = text; $('#sheetOk').textContent = okLabel;
+      $('#sheet').hidden = false;
+      const done = v => { $('#sheet').hidden = true; resolve(v); };
+      $('#sheetOk').onclick = () => done(true);
+      $('#sheetCancel').onclick = () => done(false);
+      $('#sheet').onclick = e => { if (e.target.id === 'sheet') done(false); };
+    });
+  }
+
   function toast(msg) {
     const t = $('#toast');
     t.textContent = msg; t.classList.add('show');
@@ -534,17 +556,27 @@
       html += `<div class="bubble ${m.dir} ${m.status}">${esc(m.body)}</div>`;
       const isLastOut = m.dir === 'out' && !msgs.slice(i + 1).some(x => x.dir === 'out');
       if (m.status === 'failed') html += `<div class="receipt err" data-retry="${esc(m.id)}">Not delivered${m.error ? ' — ' + esc(m.error) : ''}. Tap to retry.</div>`;
-      else if (isLastOut) html += `<div class="receipt">${{ sending: 'Sending…', sent: 'Sent', handoff: 'Sent from your device' }[m.status] || ''}</div>`;
+      else if (m.status === 'handoff' && isLastOut) html += `<div class="handoff">Finish sending in your Messages app
+        <a href="${esc(smsLink(n, m.body))}" target="_blank" rel="noopener">Open in Messages</a>
+        <button data-copy="${esc(m.id)}">Copy text</button></div>`;
+      else if (isLastOut) html += `<div class="receipt">${{ sending: 'Sending…', sent: 'Sent' }[m.status] || ''}</div>`;
     });
     $('#bubbles').innerHTML = html || (n ? '' : '<div class="empty">Type a number above, then your message.</div>');
     const sc = $('#bubbleScroll'); sc.scrollTop = sc.scrollHeight;
     $('#modeTip').textContent = mode === 'twilio'
       ? `Sending as real SMS from ${pretty(fromNumber)}`
-      : 'Send opens your device’s Messages app with the text filled in.';
+      : 'Send hands the text to your phone’s Messages app, where you tap send.';
     updateSendBtn();
   }
 
   $('#bubbles').onclick = e => {
+    const cp = e.target.closest('[data-copy]');
+    if (cp) {
+      const m = convo(current).messages.find(x => x.id === cp.dataset.copy);
+      const text = `${current}\n${m ? m.body : ''}`;
+      navigator.clipboard.writeText(text).then(() => toast('Copied number and message'), () => toast(`Couldn’t copy. Number: ${current}`));
+      return;
+    }
     const r = e.target.closest('[data-retry]');
     if (!r) return;
     const c = convo(current), m = c.messages.find(x => x.id === r.dataset.retry);
@@ -584,6 +616,9 @@
     send(n, body);
   };
 
+  // iOS reads "&body", Android reads "?body" — "?&body" works for both.
+  const smsLink = (n, body) => `sms:${n}?&body=${encodeURIComponent(body)}`;
+
   const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
   async function send(n, body) {
@@ -600,9 +635,7 @@
       }
     } else {
       msg.status = 'handoff';
-      // iOS reads "&body", Android reads "?body" — "?&body" works for both.
-      const link = `sms:${encodeURIComponent(n)}?&body=${encodeURIComponent(body)}`;
-      const a = document.createElement('a'); a.href = link; a.target = '_top'; a.click();
+      const a = document.createElement('a'); a.href = smsLink(n, body); a.target = '_blank'; a.rel = 'noopener'; a.click();
     }
     save();
     if (current === n) renderThread();
@@ -621,6 +654,7 @@
   async function detect() {
     try {
       const s = await api('/api/status');
+      if (typeof s.twilio !== 'boolean') throw new Error('No phone server');
       serverUp = true; authRequired = s.authRequired; fromNumber = s.from;
       mode = s.twilio ? 'twilio' : 'device';
     } catch {
@@ -697,8 +731,8 @@
   $('#dialCall').onclick = () => { if (dial) location.href = 'tel:' + encodeURIComponent(normalize(dial) || dial); };
   $('#dialMsg').onclick = () => { const n = normalize(dial); if (n) { dial = ''; renderDial(); openThread(n); } };
   $('#threadCall').onclick = () => { if (current) location.href = 'tel:' + encodeURIComponent(current); };
-  $('#threadDelete').onclick = () => {
-    if (!current || !confirm(`Delete conversation with ${nameOf(current)}?`)) return;
+  $('#threadDelete').onclick = async () => {
+    if (!current || !(await ask(`Delete your conversation with ${nameOf(current)}?`, 'Delete Conversation'))) return;
     delete state.convos[current]; save(); show('messages');
   };
   document.addEventListener('keydown', e => {
@@ -729,7 +763,7 @@
   };
   $('#contactList').onclick = e => {
     const t = e.target.closest('[data-thread]'), d = e.target.closest('[data-del]');
-    if (d) { if (confirm(`Delete ${state.contacts[d.dataset.del]}?`)) { delete state.contacts[d.dataset.del]; save(); renderContacts(); } }
+    if (d) ask(`Delete ${state.contacts[d.dataset.del]} from your contacts?`, 'Delete Contact').then(ok => { if (ok) { delete state.contacts[d.dataset.del]; save(); renderContacts(); } });
     else if (t) openThread(t.dataset.thread);
   };
 
@@ -744,7 +778,7 @@
       $('#modeName').textContent = 'Device hand-off';
       $('#modeDesc').textContent = serverUp
         ? 'Server is running but Twilio isn’t configured. Tapping send opens your device’s Messages app with the text ready to go.'
-        : 'No server found. Tapping send opens your device’s Messages app with the text ready to go. Run server.js with Twilio keys for real two-way SMS.';
+        : 'Tapping send hands the text to your phone’s Messages app with the number and message filled in. For texts that send straight from here, with replies, run server.js with Twilio (see README).';
       pill.textContent = serverUp ? 'No Twilio' : 'Offline'; pill.className = 'pill warn';
     }
     $('#tokenCell').hidden = !authRequired;
@@ -756,8 +790,8 @@
   $('#recheck').onclick = async () => { await detect(); toast(mode === 'twilio' ? 'Connected to Twilio' : 'Using device hand-off'); };
   $('#themeSeg').onclick = e => { const b = e.target.closest('[data-v]'); if (b) { state.settings.theme = b.dataset.v; save(); applyLook(); renderSettings(); } };
   $('#swatches').onclick = e => { const b = e.target.closest('[data-wp]'); if (b) { state.settings.wallpaper = +b.dataset.wp; save(); applyLook(); renderSettings(); } };
-  $('#wipe').onclick = () => {
-    if (!confirm('Erase all messages and contacts on this phone?')) return;
+  $('#wipe').onclick = async () => {
+    if (!(await ask('Erase all messages and contacts on this phone? This can’t be undone.', 'Erase Everything'))) return;
     const { settings, seq } = state;
     state = { ...defaults(), settings, seq }; save(); updateBadges(); toast('Erased');
   };
