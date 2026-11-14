@@ -33,7 +33,8 @@ const store = {
 };
 const state = { events: new Map(), loc: null };
 const keys = () => ({ tm: store.get('lineup.tm') || '', sg: store.get('lineup.sg') || '' });
-const isDemo = () => !keys().tm;
+const hasTM = () => !!keys().tm;
+const DEFAULT_LOC = { type: 'geo', lat: 38.627, lon: -90.199, label: 'St. Louis area' };
 
 function money(n, cur = 'USD') {
   try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: n % 1 ? 2 : 0 }).format(n); }
@@ -109,16 +110,32 @@ async function tmFetch(path, params) {
   if (!r.ok) throw new Error('Could not load events (error ' + r.status + ').');
   return r.json();
 }
+/* ---------- data: local files (sports schedules + weekly curated search) ---------- */
+let localCache;
+async function loadLocal() {
+  if (localCache) return localCache;
+  const today = new Date(); const t0 = `${today.getFullYear()}-${p2(today.getMonth() + 1)}-${p2(today.getDate())}`;
+  const files = await Promise.all(['data/sports.json', 'data/curated.json'].map(f =>
+    fetch(f + '?t=' + Math.floor(Date.now() / 600000)).then(r => (r.ok ? r.json() : { events: [] })).catch(() => ({ events: [] }))));
+  localCache = files.flatMap(f => f.events || []).filter(e => e.date && e.title && e.date >= t0)
+    .map(e => ({ source: 'local', icon: catById(e.cat)?.icon, price: null, ...e, url: safeUrl(e.url) }));
+  return localCache;
+}
 async function fetchCategory(cat) {
-  if (isDemo()) return window.DEMO_EVENTS.filter(e => e.cat === cat.id);
-  const data = await tmFetch('events.json', { size: 40, sort: 'date,asc', ...cat.q, ...locParams(state.loc) });
-  const seen = new Set();
-  return (data._embedded?.events || []).map(e => normalizeTM(e, cat.id)).filter(e => e.date && !seen.has(e.id) && seen.add(e.id));
+  const local = (await loadLocal()).filter(e => e.cat === cat.id);
+  if (!hasTM()) return local;
+  try {
+    const data = await tmFetch('events.json', { size: 40, sort: 'date,asc', ...cat.q, ...locParams(state.loc || DEFAULT_LOC) });
+    const seen = new Set();
+    const tm = (data._embedded?.events || []).map(e => normalizeTM(e, cat.id)).filter(e => e.date && !seen.has(e.id) && seen.add(e.id));
+    return [...local, ...tm];
+  } catch (e) { if (!local.length) throw e; return local; }
 }
 async function getEvent(id) {
   if (state.events.has(id)) return state.events.get(id);
-  if (id.startsWith('demo_')) return window.DEMO_EVENTS.find(e => e.id === id);
-  if (id.startsWith('tm_') && !isDemo()) {
+  const loc = (await loadLocal()).find(e => e.id === id);
+  if (loc) return loc;
+  if (id.startsWith('tm_') && hasTM()) {
     const ev = normalizeTM(await tmFetch('events/' + encodeURIComponent(id.slice(3)) + '.json', {}), 'concerts');
     state.events.set(id, ev); return ev;
   }
@@ -142,8 +159,7 @@ async function seatGeekLookup(ev) {
 }
 function buildVendors(ev, sgResult) {
   const list = [];
-  if (ev.source === 'demo') list.push(...(ev.vendors || []));
-  else {
+  {
     list.push({ name: 'Ticketmaster', price: ev.price?.min ?? null, verified: true, url: ev.url });
     if (sgResult) list.push(sgResult);
   }
@@ -170,7 +186,7 @@ function compareHtml(ev, sgResult, sgPending) {
   return `<div class="compare"><h2>Compare prices</h2>
     ${[...priced, ...unpriced].map(row).join('')}
     ${sgPending ? '<p class="note">Checking SeatGeek…</p>' : ''}
-    <p class="note">Prices are the lowest listed and can change at checkout (fees, taxes). "Verified" means an official box office or a reseller with a buyer guarantee. Always check the web address before you pay.${ev.source === 'demo' ? ' <b>These are sample prices.</b>' : ''}</p></div>`;
+    <p class="note">Prices are the lowest listed and can change at checkout (fees, taxes). "Verified" means an official box office or a reseller with a buyer guarantee. Always check the web address before you pay.</p></div>`;
 }
 
 /* ---------- calendar & share ---------- */
@@ -215,13 +231,11 @@ async function shareEvent(ev) {
 
 /* ---------- views ---------- */
 const app = () => $('#app');
-function demoBanner() {
-  return isDemo() ? '<div class="banner">🧪 <b>Demo mode</b> — these are sample events. Tap ⚙️ and add a free Ticketmaster key to see real events near you.</div>' : '';
-}
+const demoBanner = () => '';
 function viewHome() {
   document.title = 'Lineup — find events near you';
   app().innerHTML = `<h1>What are you in the mood for?</h1>
-    <p class="muted">${state.loc ? 'Showing events near ' + esc(state.loc.label) + '.' : 'Enter a city or ZIP above, or tap 📍, to see events near you.'}</p>
+    <p class="muted">Events in the St. Louis, MO area. New listings are added every week.</p>
     ${demoBanner()}
     <div class="tiles">${CATEGORIES.map(c => c.soon
       ? `<div class="tile soon" style="--c1:${c.c1};--c2:${c.c2}" aria-disabled="true"><span class="ic" aria-hidden="true">${c.icon}</span>${esc(c.label)}<span class="soonbadge">Coming soon</span></div>`
@@ -243,10 +257,6 @@ async function viewCategory(id, sort = 'date') {
     app().innerHTML = `<a class="crumb" href="#/">← All categories</a><h1>${cat.icon} ${esc(cat.label)}</h1><div class="state"><p><b>Coming soon</b></p><p>Concert listings and verified-seller price comparison are on the way.</p></div>`;
     return;
   }
-  if (!isDemo() && !state.loc) {
-    app().innerHTML = `<a class="crumb" href="#/">← All categories</a><h1>${cat.icon} ${esc(cat.label)}</h1><div class="banner err">Enter a city or ZIP code above (or tap 📍) so I know where to look.</div>`;
-    return;
-  }
   app().innerHTML = `<a class="crumb" href="#/">← All categories</a><h1>${cat.icon} ${esc(cat.label)}</h1><div class="state"><div class="spin"></div>Loading events…</div>`;
   let events;
   try { events = await fetchCategory(cat); }
@@ -260,9 +270,9 @@ async function viewCategory(id, sort = 'date') {
   if (sort === 'price') events.sort((a, b) => (a.price ? a.price.min : 1e9) - (b.price ? b.price.min : 1e9));
   else events.sort((a, b) => startDate(a) - startDate(b));
   app().innerHTML = `<a class="crumb" href="#/">← All categories</a><h1>${cat.icon} ${esc(cat.label)}</h1>
-    <p class="muted">${events.length} event${events.length === 1 ? '' : 's'}${state.loc ? ' near ' + esc(state.loc.label) : ''}</p>${demoBanner()}
+    <p class="muted">${events.length} event${events.length === 1 ? '' : 's'}</p>${demoBanner()}
     <div class="toolbar"><span></span><label class="muted">Sort <select id="sortsel"><option value="date"${sort === 'date' ? ' selected' : ''}>Soonest</option><option value="price"${sort === 'price' ? ' selected' : ''}>Lowest price</option></select></label></div>
-    ${events.length ? `<div class="list">${events.map(cardHtml).join('')}</div>` : '<div class="state">No events found here. Try a bigger city or another category.</div>'}`;
+    ${events.length ? `<div class="list">${events.map(cardHtml).join('')}</div>` : '<div class="state"><p><b>No events yet</b></p><p>We\'re adding more St. Louis events every week. Check back soon!</p></div>'}`;
   $('#sortsel')?.addEventListener('change', e => viewCategory(id, e.target.value));
 }
 async function viewEvent(id) {
@@ -273,8 +283,8 @@ async function viewEvent(id) {
   document.title = ev.title + ' — Lineup';
   state.events.set(ev.id, ev);
   const cat = catById(ev.cat) || {}, pi = priceInfo(ev), link = safeUrl(ev.url);
-  const showCompare = pi.kind !== 'free' && (ev.source === 'tm' || (ev.vendors && ev.vendors.length));
-  const sgWanted = showCompare && !!keys().sg && ev.source !== 'demo';
+  const showCompare = pi.kind !== 'free' && ev.source === 'tm';
+  const sgWanted = showCompare && !!keys().sg;
   app().innerHTML = `<a class="crumb" href="#/c/${esc(ev.cat)}">← ${esc(cat.label || 'Back')}</a>
     <div class="hero"><div class="img" style="--c1:${cat.c1 || '#3a2a6a'};--c2:${cat.c2 || '#ff3d81'}">${ev.image ? `<img src="${esc(ev.image)}" alt="">` : `<span aria-hidden="true">${esc(ev.icon || '🎟️')}</span>`}</div></div>
     <div class="date">${esc(fmtDate(ev))}</div><h1>${esc(ev.title)}</h1>
