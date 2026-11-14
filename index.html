@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lineup — find events near you</title>
+<meta name="description" content="Concerts, sports, food events, conventions and more in one place, with verified-seller price comparison.">
+<meta name="theme-color" content="#0b0b14">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="#/" aria-label="Lineup home">Line<span>up</span></a>
+  <form id="locform" class="loc" autocomplete="off">
+    <input id="locinput" type="text" placeholder="City, ST or ZIP" aria-label="City or ZIP code">
+    <button type="submit" class="btn small">Go</button>
+    <button type="button" id="geobtn" class="btn small ghost" title="Use my location" aria-label="Use my location">📍</button>
+  </form>
+  <button id="settingsbtn" class="btn small ghost" aria-label="Settings">⚙️</button>
+</header>
+<main id="app" aria-live="polite"></main>
+
+<dialog id="settings">
+  <form method="dialog" class="sheet">
+    <h2>Settings</h2>
+    <p class="muted">Live data needs a free key from Ticketmaster. Keys are saved only in this browser.</p>
+    <label>Ticketmaster key
+      <input id="tmkey" type="password" autocomplete="off" placeholder="Paste your Consumer Key">
+    </label>
+    <p class="hint">Get one free: <a href="https://developer.ticketmaster.com/" target="_blank" rel="noopener noreferrer">developer.ticketmaster.com</a> → sign up → My Apps → copy "Consumer Key".</p>
+    <label>SeatGeek client ID <span class="muted">(optional, adds a second price)</span>
+      <input id="sgkey" type="password" autocomplete="off" placeholder="Paste your client ID">
+    </label>
+    <p class="hint">Get one free: <a href="https://seatgeek.com/build" target="_blank" rel="noopener noreferrer">seatgeek.com/build</a>.</p>
+    <div class="row">
+      <button value="save" id="savekeys" class="btn">Save</button>
+      <button value="clear" id="clearkeys" class="btn ghost">Clear keys</button>
+      <button value="cancel" class="btn ghost">Close</button>
+    </div>
+  </form>
+</dialog>
+<div id="toast" role="status"></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
