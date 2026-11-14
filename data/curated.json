@@ -1,1 +1,186 @@
-{ "updated": null, "events": [] }
+{
+ "updated": "2026-11-14T23:53:31Z",
+ "events": [
+  {
+   "id": "cur_garden-glow-2026-11-14",
+   "cat": "family",
+   "title": "Garden Glow",
+   "date": "2026-11-14",
+   "time": null,
+   "venue": "Missouri Botanical Garden",
+   "city": "St. Louis, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/a-guide-to-st-louis-holiday-light-displays/",
+   "info": "More than two million lights, projections and immersive experiences. Runs Nov 14 to Jan 2.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_weirdly-wonderful-2026-11-19",
+   "cat": "family",
+   "title": "Weirdly Wonderful Holidays at City Museum",
+   "date": "2026-11-19",
+   "time": null,
+   "venue": "City Museum",
+   "city": "St. Louis, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/whats-new/holiday-fun-in-st-louis/",
+   "info": "City Museum turns into a holiday winter wonderland. Runs Nov 19 to Jan 3.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_santas-magical-kingdom-2026-11-20",
+   "cat": "family",
+   "title": "Santa's Magical Kingdom",
+   "date": "2026-11-20",
+   "time": null,
+   "venue": "Jellystone Park, next to Mid America Adventure",
+   "city": "Eureka, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/a-guide-to-st-louis-holiday-light-displays/",
+   "info": "Drive-through or wagon-ride light show with 4 million lights. Open nightly Nov 20 to Jan 3.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_brewery-lights-2026-11-21",
+   "cat": "family",
+   "title": "Brewery Lights at Anheuser-Busch Brewery",
+   "date": "2026-11-21",
+   "time": null,
+   "venue": "Anheuser-Busch Brewery",
+   "city": "St. Louis, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/a-guide-to-st-louis-holiday-light-displays/",
+   "info": "40th annual light display with a nightly light show and parade. Runs Nov 21 to Dec 26. Tickets tend to sell out.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_grants-farm-lights-2026-11-21",
+   "cat": "family",
+   "title": "Holiday Lights at Grant's Farm",
+   "date": "2026-11-21",
+   "time": null,
+   "venue": "Grant's Farm",
+   "city": "St. Louis, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/a-guide-to-st-louis-holiday-light-displays/",
+   "info": "Drive-through or walking light displays, Santa and the Clydesdales. Runs Nov 21 to Dec 30. Reservations recommended.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_way-of-lights-2026-11-20",
+   "cat": "festivals",
+   "title": "Way of Lights",
+   "date": "2026-11-20",
+   "time": null,
+   "venue": "National Shrine of Our Lady of the Snows",
+   "city": "Belleville, IL",
+   "price": null,
+   "url": "https://explorestlouis.com/a-guide-to-st-louis-holiday-light-displays/",
+   "info": "Annual Christmas light display on the shrine grounds. Runs Nov 20 to Dec 31.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_winterfest-2026-11-21",
+   "cat": "festivals",
+   "title": "Winterfest at Kiener Plaza",
+   "date": "2026-11-21",
+   "time": null,
+   "venue": "Kiener Plaza",
+   "city": "St. Louis, MO",
+   "price": {
+    "min": 0,
+    "max": 0,
+    "currency": "USD"
+   },
+   "url": "https://www.archpark.org/winterfest",
+   "info": "Ice skating, curling, holiday market and more through Jan 3. Thu-Fri 4-8 PM, Sat-Sun 12-8 PM.",
+   "source": "Gateway Arch Park Foundation"
+  },
+  {
+   "id": "cur_thanks-for-giving-parade-2026-11-21",
+   "cat": "festivals",
+   "title": "Ameren Thanks-For-Giving Parade",
+   "date": "2026-11-21",
+   "time": "14:00:00",
+   "venue": "Downtown St. Louis",
+   "city": "St. Louis, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/whats-new/holiday-fun-in-st-louis/",
+   "info": "42nd annual parade with floats, marching bands and Santa Claus.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_festival-of-lights-2026-11-21",
+   "cat": "free",
+   "title": "Festival of Lights",
+   "date": "2026-11-21",
+   "time": null,
+   "venue": "Kiener Plaza",
+   "city": "St. Louis, MO",
+   "price": {
+    "min": 0,
+    "max": 0,
+    "currency": "USD"
+   },
+   "url": "https://explorestlouis.com/whats-new/holiday-fun-in-st-louis/",
+   "info": "Free family event opening Winterfest: performances, reindeer, Tree of Lights lighting and fireworks.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_slam-festive-friday-2026-12-18",
+   "cat": "free",
+   "title": "Festive Friday at the Saint Louis Art Museum",
+   "date": "2026-12-18",
+   "time": "10:00:00",
+   "venue": "Saint Louis Art Museum",
+   "city": "St. Louis, MO",
+   "price": {
+    "min": 0,
+    "max": 0,
+    "currency": "USD"
+   },
+   "url": "https://www.stlouis-mo.gov/events/eventdetails.cfm?Event_ID=55615",
+   "info": "Free concerts, tours, gallery activations and art-making, 10 AM to 9 PM.",
+   "source": "City of St. Louis calendar"
+  },
+  {
+   "id": "cur_love-actually-concert-2026-12-13",
+   "cat": "comedy-theater",
+   "title": "Love Actually in Concert",
+   "date": "2026-12-13",
+   "time": null,
+   "venue": "The Fabulous Fox",
+   "city": "St. Louis, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/whats-new/holiday-fun-in-st-louis/",
+   "info": "The film plays in full while a live orchestra performs the soundtrack.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_cirque-dreams-holidaze-2026-12-18",
+   "cat": "comedy-theater",
+   "title": "Cirque Dreams Holidaze",
+   "date": "2026-12-18",
+   "time": null,
+   "venue": "The Fabulous Fox",
+   "city": "St. Louis, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/whats-new/holiday-fun-in-st-louis/",
+   "info": "Family-friendly holiday circus spectacular. Also Dec 19.",
+   "source": "Explore St. Louis"
+  },
+  {
+   "id": "cur_nutcracker-magical-christmas-ballet-2026-12-20",
+   "cat": "comedy-theater",
+   "title": "Nutcracker! Magical Christmas Ballet",
+   "date": "2026-12-20",
+   "time": null,
+   "venue": "The Fabulous Fox",
+   "city": "St. Louis, MO",
+   "price": null,
+   "url": "https://explorestlouis.com/whats-new/holiday-fun-in-st-louis/",
+   "info": "Ballet, puppets and acrobatics. Also Dec 21.",
+   "source": "Explore St. Louis"
+  }
+ ]
+}
