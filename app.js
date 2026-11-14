@@ -2,7 +2,7 @@
 /* Lineup — local event finder. No build step, no server. */
 
 const CATEGORIES = [
-  { id: 'concerts', label: 'Concerts', icon: '🎤', c1: '#ff3d81', c2: '#7c5cff', q: { classificationName: 'Music' } },
+  { id: 'concerts', label: 'Concerts', soon: true, icon: '🎤', c1: '#ff3d81', c2: '#7c5cff', q: { classificationName: 'Music' } },
   { id: 'sports', label: 'Sports', icon: '🏟️', c1: '#00b36b', c2: '#0a7bff', q: { classificationName: 'Sports' } },
   { id: 'comedy-theater', label: 'Comedy & Theater', icon: '🎭', c1: '#ff8a00', c2: '#e0245e', q: { classificationName: 'Arts & Theatre' } },
   { id: 'food-drink', label: 'Food & Drink', icon: '🍴', c1: '#f9a602', c2: '#d9381e', q: { keyword: 'food' } },
@@ -223,7 +223,9 @@ function viewHome() {
   app().innerHTML = `<h1>What are you in the mood for?</h1>
     <p class="muted">${state.loc ? 'Showing events near ' + esc(state.loc.label) + '.' : 'Enter a city or ZIP above, or tap 📍, to see events near you.'}</p>
     ${demoBanner()}
-    <div class="tiles">${CATEGORIES.map(c => `<a class="tile" style="--c1:${c.c1};--c2:${c.c2}" href="#/c/${c.id}"><span class="ic" aria-hidden="true">${c.icon}</span>${esc(c.label)}</a>`).join('')}</div>`;
+    <div class="tiles">${CATEGORIES.map(c => c.soon
+      ? `<div class="tile soon" style="--c1:${c.c1};--c2:${c.c2}" aria-disabled="true"><span class="ic" aria-hidden="true">${c.icon}</span>${esc(c.label)}<span class="soonbadge">Coming soon</span></div>`
+      : `<a class="tile" style="--c1:${c.c1};--c2:${c.c2}" href="#/c/${c.id}"><span class="ic" aria-hidden="true">${c.icon}</span>${esc(c.label)}</a>`).join('')}</div>`;
 }
 function cardHtml(ev) {
   const cat = catById(ev.cat) || {};
@@ -237,6 +239,10 @@ function cardHtml(ev) {
 async function viewCategory(id, sort = 'date') {
   const cat = catById(id); if (!cat) return viewHome();
   document.title = cat.label + ' — Lineup';
+  if (cat.soon) {
+    app().innerHTML = `<a class="crumb" href="#/">← All categories</a><h1>${cat.icon} ${esc(cat.label)}</h1><div class="state"><p><b>Coming soon</b></p><p>Concert listings and verified-seller price comparison are on the way.</p></div>`;
+    return;
+  }
   if (!isDemo() && !state.loc) {
     app().innerHTML = `<a class="crumb" href="#/">← All categories</a><h1>${cat.icon} ${esc(cat.label)}</h1><div class="banner err">Enter a city or ZIP code above (or tap 📍) so I know where to look.</div>`;
     return;

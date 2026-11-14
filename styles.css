@@ -63,3 +63,6 @@ dialog::backdrop{background:rgba(0,0,0,.65)}
 #toast.show{transform:translate(-50%,0);opacity:1}
 @media (max-width:520px){.logo{font-size:1.25rem}.top{flex-wrap:wrap}.loc{order:3;flex-basis:100%}.top #settingsbtn{margin-left:auto}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.tile.soon{filter:saturate(.5) brightness(.7);cursor:default}
+.tile.soon:hover{transform:none}
+.soonbadge{margin-top:6px;align-self:flex-start;font-size:.75rem;font-weight:800;padding:3px 9px;border-radius:99px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.5)}
