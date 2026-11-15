@@ -1,19 +1,6 @@
 {
- "updated": "2026-11-14T23:36:50.014Z",
+ "updated": "2026-11-15T06:36:36.485Z",
  "events": [
-  {
-   "id": "nhl_2026020320",
-   "cat": "sports",
-   "title": "Blues vs. Panthers",
-   "date": "2026-11-14",
-   "time": "18:00:00",
-   "venue": "Enterprise Center",
-   "city": "St. Louis, MO",
-   "icon": "🏒",
-   "price": null,
-   "url": "https://www.nhl.com/blues/tickets",
-   "source": "NHL schedule"
-  },
   {
    "id": "nhl_2026020339",
    "cat": "sports",
