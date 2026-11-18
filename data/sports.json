@@ -1,19 +1,6 @@
 {
- "updated": "2026-11-17T20:57:33.261Z",
+ "updated": "2026-11-18T07:31:16.301Z",
  "events": [
-  {
-   "id": "nhl_2026020339",
-   "cat": "sports",
-   "title": "Blues vs. Ducks",
-   "date": "2026-11-17",
-   "time": "19:00:00",
-   "venue": "Enterprise Center",
-   "city": "St. Louis, MO",
-   "icon": "🏒",
-   "price": null,
-   "url": "https://www.nhl.com/blues/tickets",
-   "source": "NHL schedule"
-  },
   {
    "id": "nhl_2026020368",
    "cat": "sports",
