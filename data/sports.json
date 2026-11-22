@@ -1,19 +1,6 @@
 {
- "updated": "2026-11-21T19:18:46.058Z",
+ "updated": "2026-11-22T06:52:35.156Z",
  "events": [
-  {
-   "id": "nhl_2026020368",
-   "cat": "sports",
-   "title": "Blues vs. Devils",
-   "date": "2026-11-21",
-   "time": "18:00:00",
-   "venue": "Enterprise Center",
-   "city": "St. Louis, MO",
-   "icon": "🏒",
-   "price": null,
-   "url": "https://www.nhl.com/blues/tickets",
-   "source": "NHL schedule"
-  },
   {
    "id": "nhl_2026020375",
    "cat": "sports",
