@@ -1,19 +1,6 @@
 {
- "updated": "2026-11-27T21:19:41.838Z",
+ "updated": "2026-11-28T07:52:23.823Z",
  "events": [
-  {
-   "id": "nhl_2026020403",
-   "cat": "sports",
-   "title": "Blues vs. Stars",
-   "date": "2026-11-27",
-   "time": "13:00:00",
-   "venue": "Enterprise Center",
-   "city": "St. Louis, MO",
-   "icon": "🏒",
-   "price": null,
-   "url": "https://www.nhl.com/blues/tickets",
-   "source": "NHL schedule"
-  },
   {
    "id": "nhl_2026020422",
    "cat": "sports",
